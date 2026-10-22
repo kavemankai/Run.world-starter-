@@ -1,0 +1,29 @@
+{
+  "name": "run-world-game-starter",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "dev:lan": "vite --host 0.0.0.0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test tests/*.test.mjs",
+    "check": "npm run typecheck && npm test",
+    "build": "npm run check && vite build && node scripts/validate-build.mjs",
+    "preview": "vite preview",
+    "deploy": "npm run build && rundot deploy",
+    "sdk:setup": "rundot-sdk-setup",
+    "new:game": "node scripts/new-game.mjs"
+  },
+  "dependencies": {
+    "@series-inc/rundot-game-sdk": "^5.29.1"
+  },
+  "devDependencies": {
+    "firebase": "^12.12.1",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.0"
+  }
+}

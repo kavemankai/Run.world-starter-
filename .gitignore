@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+.vite/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
+# These configs identify a specific RUN.world game. Generate per clone.
+game.config.prod.json
+game.config.playground.json
+# SDK setup may create a large, generated documentation copy.
+.rundot-docs/
+# Credentials and generated working files must never be committed.
+.rundot/

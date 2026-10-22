@@ -1,0 +1,5 @@
+* text=auto
+# For projects with large binary assets, install Git LFS before enabling these lines.
+# *.png filter=lfs diff=lfs merge=lfs -text
+# *.glb filter=lfs diff=lfs merge=lfs -text
+# *.ogg filter=lfs diff=lfs merge=lfs -text
