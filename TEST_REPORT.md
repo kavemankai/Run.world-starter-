@@ -25,6 +25,6 @@ Browser screenshots were inspected for the menu, arena and controls. Repeatable 
 
 ## Platform and device limits
 
-No authenticated RUN.world Playground session, RUN game registration, deployment or publication was performed. Production-preview SDK initialization uses its local/mock environment and is labelled accordingly; the player explicitly chooses offline play. Reviewed official bundled documentation and retained the official plugins, initialization, safe-area variables and host pause/sleep subscriptions, but actual host behavior still requires account-backed testing.
+The development server starts with both official plugins and no missing-dependency screen; its Playground shell requires sign-in before mounting the game. No authenticated RUN.world Playground session, RUN game registration, deployment or publication was performed. Production-preview SDK initialization uses its local/mock environment and is labelled accordingly; the player explicitly chooses offline play. Reviewed official bundled documentation and retained the official plugins, initialization, safe-area variables and host pause/sleep subscriptions, but actual host behavior still requires account-backed testing.
 
 No physical phone, native RUN.world app, mobile GPU benchmark or human combat playtest was used. Chromium mobile-size/touch automation does not establish device performance, touch feel, audio quality or SDK compatibility. The 60 FPS target / 30 FPS floor is unmeasured. Very short landscape windows may scroll because this is a portrait game.

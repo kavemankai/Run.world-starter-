@@ -13,7 +13,7 @@ npm ci
 npm run dev
 ```
 
-Open Vite's local URL. The official RUN.world Playground toolbar provides platform sign-in. For anonymous browser testing, choose **Play offline**, then **Enter the arena**. Offline play and successful SDK mock initialization do not establish authenticated RUN.world compatibility.
+Open Vite's local URL and sign in through the official RUN.world Playground toolbar. The development Playground can gate the game behind sign-in. For anonymous testing, use the production browser preview below, then choose **Play offline** and **Enter the arena**. Offline play and successful SDK mock initialization do not establish authenticated RUN.world compatibility.
 
 For a production browser preview:
 
