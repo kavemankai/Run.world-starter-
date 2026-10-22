@@ -1,39 +1,21 @@
-# Starter handover — Build A
+# Phone of Thrones — browser port v0.9.0
 
-## Scope
+## Delivered
 
-A reusable, engine-agnostic RUN.world game-shell repository. The bundled mini-game **Signal Run** is demonstration code and is not a production game.
+Full top-down TypeScript/Canvas2D port of Phone-of-thrones- e7ab545 (v0.8.0) in Run.world-starter-. Five weapons, Sword/Spear shields, light/heavy attacks, movement ramps, dodge charges, block/parry, guard breaks, stagger, three modes, captain chains, intermission and retry. Original Godot repository unchanged.
 
-## Implemented
+The starter demo has been replaced. Official RUN.world Vite plugins, SDK boundary, relative paths and dist validation remain. All art/audio is procedural; game logic makes no service calls. Browser control pointers are independent and focus/host pauses clear held input. Host/device safe areas are supported.
 
-- TypeScript/Vite SDK-hosted app with RUN.world libraries + Playground plugins.
-- Explicit RUN SDK initialization; visible failure state; user-triggered offline demo fallback.
-- Responsive Canvas2D sample, keyboard/mouse/touch input, logical viewport and capped DPR.
-- Fixed-step testable game simulation, 10-signal win condition, 40-second timer and pause/loss states.
-- Node native unit tests, GitHub Actions CI, production `dist` path validator.
-- Codex instructions (`AGENTS.md`), platform and architecture docs, game brief template.
+## Evidence
 
-## Verification
+See ../TEST_REPORT.md for commands, versions and outcomes. The build, deterministic model checks and desktop/mobile-size Chromium checks have passed locally. No claim of phone performance or authenticated platform operation follows from these results.
 
-Record completed commands and their results here; don't equate a source review with a successful build.
+SDK setup copied bundled official docs to ignored `rundot/docs/`; agent-file and CLI-hook modifications were declined. Reviewed initialization, Playground, runtime restrictions, safe-area and lifecycle references. Added the optional RevenueCat development package because Playground's missing-dependency screen blocked the local page even though this game has no IAP.
 
-- Native Node tests: **10/10 passed** using Node 22.16.0
-- Pure core typecheck: **passed** with globally available `tsc -p tsconfig.core.json --noEmit`
-- Full npm install / TypeScript / Vite production build: **not run**; npm registry unavailable in this environment (`EAI_AGAIN registry.npmjs.org`).
-- Browser / mobile / RUN Playground / deployment: Not yet verified.
+## Remaining verification
 
-## Production TODO for each game
+1. Sign into RUN.world Playground and test SDK initialization, actual host pause/sleep and host insets. The local mock is explicitly labelled; no account or game ID was supplied.
+2. Play on physical Android/iOS devices. Confirm multitouch, audio, notches, readability and at least 30 FPS; target 60. Judge timing and balance with people, especially 0.20 s heavy input and generous parry windows.
+3. Register a new Phone of Thrones game with authenticated RUN CLI, upload the validated `dist/`, and review the hosted build. Public publishing is separate and was not performed.
 
-1. Run `npm install`, then commit generated `package-lock.json` for deterministic CI (`npm ci`).
-2. Copy `docs/GAME_BRIEF.template.md` to `docs/GAME_BRIEF.md`.
-3. Choose renderer based on the game (PixiJS for 2D, Three.js for 3D, etc).
-4. Remove or replace Signal Run sample and its sample tests with the new game.
-5. Run SDK setup and review official API manuals.
-6. Authenticate and initialize **each new game** separately with RUN CLI.
-7. Build, run browser playtests, verify in Playground and deploy intentionally.
-
-## Known limits
-
-- Package installation and full SDK-driven production compilation require npm registry access.
-- No deployed RUN game has been created by this repository.
-- No multiplayer, platform storage, asset pipeline implementation or IAP logic exists; these are future game-specific modules.
+The previous starter's GitHub instructions remain useful for repository administration, but this branch is now a game rather than a reusable empty template. Source tuning deliberately retains the existing 360° guard and dagger execute behavior. No source balance or larger Shieldwall features were added.

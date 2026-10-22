@@ -1,90 +1,77 @@
-# RUN.world Game Starter
+# Phone of Thrones
 
-**Codex-first, engine-neutral TypeScript starter for local RUN.world game development.**
+A top-down 2D **Shieldwall combat prototype** for RUN.world. Choose one of five weapons, fight three grunts, then face the captain. Includes one-enemy practice and captain-only modes, shields, blocking, parrying, guard breaks, heavy-hit stagger and retry.
 
-This is a reusable repository foundation, **not** a RUN.world game engine. It ships a small playable Canvas2D example (Signal Run) to prove input, scene rendering, fixed-step game logic, pause handling and win/loss wiring. For each real project, replace the demo and choose PixiJS/Three.js if necessary.
+This TypeScript/Canvas2D port replaces the Signal Run demo in this repository. It derives from [Phone-of-thrones-](https://github.com/kavemankai/Phone-of-thrones-) v0.8.0, commit `e7ab545b389cd052305c4bb9d3d1c8e30a81d499`. The original Godot repository is unchanged. Combat values follow the implemented prototype, including its later additions, rather than the older design brief.
 
-## Quick start
+## Run locally
 
-Requires **Node.js 22.16+**, npm, a RUN.world account for Playground features and the official `rundot` CLI for deployment.
+Requires Node **22.16+** and npm.
 
-```bash
-npm install
+```sh
+npm ci
 npm run dev
 ```
 
-Open the Vite local URL. RUN Playground's toolbar handles account sign-in; the sample explicitly reports any SDK connection failure and can be played in deliberate offline-demo mode. That mode is **not** evidence of SDK compatibility.
+Open Vite's local URL. The official RUN.world Playground toolbar provides platform sign-in. For anonymous browser testing, choose **Play offline**, then **Enter the arena**. Offline play and successful SDK mock initialization do not establish authenticated RUN.world compatibility.
 
-To typecheck, test, validate the build and create a shipping bundle:
+For a production browser preview:
 
-```bash
+```sh
 npm run build
+npm run preview
 ```
 
-### Create a new game
+## Controls
 
-1. Create a new repository from this starter (once uploaded to GitHub, mark it as a **template repository**) or copy these files into a new directory.
-2. `npm install` and commit the generated `package-lock.json` so CI can later use `npm ci`.
-3. `npm run new:game -- "My Game Name"` (changes package name and HTML title only).
-4. Copy `docs/GAME_BRIEF.template.md` to `docs/GAME_BRIEF.md` and fill in the design decisions and Build A scope.
-5. Ask Codex to read `AGENTS.md` and `docs/GAME_BRIEF.md`, replace the sample with the smallest playable vertical slice and keep platform/test infrastructure.
-6. Run `npx rundot-sdk-setup` and review each prompted change. Official docs are copied locally for agents; do not blindly overwrite your `AGENTS.md`.
-7. Use local browser tests and RUN.world Playground for all SDK-dependent functionality.
+| Action         | Touch / mouse                                       | Keyboard                     |
+| -------------- | --------------------------------------------------- | ---------------------------- |
+| Move / face    | Drag in the left control area                       | WASD / arrows                |
+| Light attack   | Tap ATTACK and release before 0.20 s                | Tap J                        |
+| Heavy attack   | Hold ATTACK until HEAVY READY, then release         | Hold J, release              |
+| Guard / parry  | Hold BLOCK; raise just before impact to parry       | Hold K                       |
+| Dodge          | DODGE; follows stick or goes backwards when neutral | Space                        |
+| Pause / resume | Footer Pause / Resume                               | Escape pauses; Enter resumes |
+| Start / retry  | Panel button                                        | Enter                        |
 
-### Deploy (not automatic)
+Leaving ATTACK cancels the charge. Dodge cancels charge/recovery but cannot cancel a committed swing. Every swing damages each target once. Daggers move through attacks; other weapons stop during wind-up/strike. Orange dashed wedges track you; solid red wedges lock direction. The visible sector is the actual damage area, tested against character circles.
 
-Install the official CLI from https://github.com/series-ai/rundot-cli-releases and run:
+The shield is available for Sword/Spear and costs 5% movement speed. All guards cover 360° as in the source; bare guards take chip damage. The captain's lunge breaks an ordinary bare guard, but a parry or shield stops it. A parry or heavy freezes an enemy and grants double damage on its waking hit; a plain block recoil has neither effect. Dagger parries kill grunts and remove 60 captain HP.
 
-```bash
+After the grunts die: a two-second breather, up to 30 HP restored, full dodge charges, then the captain. Defeat takes priority if both sides die together. Retry retains the chosen encounter/loadout and resets combat state. Backgrounding, focus loss, resize or a host pause freezes the fight and clears held input. Resume is explicit. Sound is generated locally after interaction and can be muted.
+
+## Verification
+
+```sh
+npm run build                 # typecheck, deterministic tests, Vite, dist checks
+npx playwright install chromium
+npm run test:browser          # built preview; run build first
+```
+
+For an installed system Chromium, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/path/to/chromium`. CI installs Chromium and runs both commands. Browser results and traces are ignored by Git.
+
+See [TEST_REPORT.md](TEST_REPORT.md) for evidence and limits. Current automated coverage includes all five weapons completing the full encounter with a scripted player at normal HP; this is a regression check, not a human playtest or a balance claim.
+
+## Architecture and tuning
+
+- `src/game/`: browser-free combat model, typed weapon/enemy/tuning data, vector/sector math and Canvas2D rendering adapter.
+- `src/input/`: shared combat intent plus keyboard and independent multitouch pointers.
+- `src/platform/run.ts`: SDK initialization and host pause/sleep hooks.
+- `src/audio/`: small procedural sound player; no audio downloads.
+- `src/main.ts` and `src/style.css`: menus, HUD, fixed 60 Hz loop, responsive portrait layout and safe areas.
+
+Edit `src/game/data.ts` for balance. Distances use a 340×380 arena, uniformly scaled inside a 720×1280 reference view. The bottom 28% is reserved for controls. Top-down spawn positions and direct screen-aligned movement replace the source's isometric projection. Rendering caps pixel density at 2. No campaign, networking, saved progress, ads or purchases are implemented. RevenueCat/Firebase are development-only dependencies required by Playground tooling, not game services.
+
+## RUN.world upload
+
+The validated browser bundle is `dist/`; paths are relative for subdirectory hosting. Both official Vite plugins are retained. No RUN.world game has been registered or deployed by this change.
+
+After authenticated Playground and physical-phone checks, install the official [RUN.world CLI](https://github.com/series-ai/rundot-cli-releases), then:
+
+```sh
 rundot login
-rundot init          # once per individual game; use dist as build directory
-npm run deploy       # build/tests then rundot deploy
+rundot init      # a new Phone of Thrones game, build path dist
+npm run deploy
 ```
 
-RUN.world creates `game.config.prod.json` when you initialize a game. It is intentionally git-ignored in the template so cloned games don't target the starter's ID. Keep a separate configuration for each game. Deployment is not the same as publishing publicly.
-
-## Commands
-
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Vite + RUN.world Playground local server |
-| `npm run dev:lan` | LAN preview (never use with headless Playground key) |
-| `npm test` | Fast deterministic Node.js core tests |
-| `npm run typecheck` | TypeScript validation |
-| `npm run build` | Typecheck + tests + bundle + dist path check |
-| `npm run preview` | Preview already-built production files |
-| `npm run deploy` | Validated build + authenticated `rundot deploy` |
-| `npm run new:game -- "Title"` | Rename package and browser title |
-
-## Layout
-
-```text
-src/
-  main.ts                responsive shell, input, loop and lifecycle
-  game/core.ts           deterministic, browser-free game state
-  game/render.ts         replaceable Canvas2D demo renderer
-  platform/run.ts        isolated RUN.world SDK bootstrap
-  style.css              responsive layout
-tests/core.test.mjs      native Node tests (no extra test framework)
-docs/                   architecture, SDK, checklist, game brief and handover
-.github/workflows/ci.yml automatic validation
-AGENTS.md                Codex development contract
-vite.config.ts           official SDK Vite plugins and relative base path
-```
-
-## Template philosophy
-
-- Engine neutral by default. Choose PixiJS for sprite-centric 2D, Three.js for WebGL 3D, or other browser rendering only when warranted.
-- Platform isolated; don't tie the core loop to storage, multiplayer or account state unless required.
-- Do not claim user playtesting from passing unit tests.
-- Do not commit account credentials, arbitrary game IDs, temporary SDK docs or megabytes of unreviewed art.
-- No ads, purchases, tracking or monetization are included in the foundation.
-
-See `AGENTS.md`, `docs/ARCHITECTURE.md`, `docs/RUN_PLATFORM.md`, `docs/HANDOVER.md` and `docs/PUBLISH_GITHUB.md` before expanding the project.
-
-### Upstream requirements verified against official guides
-
-- [RUN.world Getting Started](https://github.com/series-ai/venus-sdk-docs/blob/main/rundot-developer-platform/getting-started.md)
-- [Testing Locally With Playground](https://github.com/series-ai/venus-sdk-docs/blob/main/rundot-developer-platform/playground.md)
-- [RUN.world CLI](https://github.com/series-ai/rundot-cli-releases)
-- [RUN.world SDK npm package](https://www.npmjs.com/package/@series-inc/rundot-game-sdk)
+Per-game configs and credentials stay out of Git. Uploading a private build and publishing publicly are separate actions. See [docs/RUN_PLATFORM.md](docs/RUN_PLATFORM.md), [docs/PLAYTEST_CHECKLIST.md](docs/PLAYTEST_CHECKLIST.md) and [docs/HANDOVER.md](docs/HANDOVER.md).
