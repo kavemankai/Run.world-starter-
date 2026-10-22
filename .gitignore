@@ -15,3 +15,8 @@ game.config.playground.json
 .rundot-docs/
 # Credentials and generated working files must never be committed.
 .rundot/
+
+# Browser verification artifacts.
+test-results/
+playwright-report/
+rundot/docs/

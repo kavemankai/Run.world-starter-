@@ -1,216 +1,267 @@
-import './style.css';
-import {
-  BOARD_HEIGHT, BOARD_WIDTH, ROUND_SECONDS, TARGET_SCORE,
-  createGame, pauseGame, startGame, tickGame, type Directions, type Input,
-  type GameState,
-} from './game/core.ts';
-import { renderGame } from './game/render.ts';
-import { initializeRunPlatform } from './platform/run.ts';
-
-const root = document.querySelector<HTMLDivElement>('#app');
-if (!root) throw new Error('Missing #app mount node');
-
-root.innerHTML = `
-  <main class="shell">
-    <section class="game-column" aria-label="Sample game">
-      <header class="topbar">
-        <div class="brand"><span class="brand-mark">R<span>.</span></span><span>RUN<span class="subtle">/STARTER</span></span></div>
-        <div id="platform-status" class="connection" role="status" aria-live="polite">Connecting to RUN.world…</div>
-      </header>
-      <div class="game-frame">
-        <canvas id="game" width="${BOARD_WIDTH}" height="${BOARD_HEIGHT}" aria-label="Signal Run playing field"></canvas>
-        <div class="in-game-hud" aria-live="off">
-          <div class="hud-item"><span class="hud-label">SIGNALS</span><strong id="score">0 / ${TARGET_SCORE}</strong></div>
-          <div class="hud-item hud-right"><span class="hud-label">TIME LEFT</span><strong id="time">${ROUND_SECONDS}s</strong></div>
+import "./style.css";
+import { Game, type Mode } from "./game/core.ts";
+import { T, WEAPONS } from "./game/data.ts";
+import { renderGame } from "./game/render.ts";
+import { BrowserInput } from "./input/browser.ts";
+import { SoundPlayer } from "./audio/sound.ts";
+import { initializeRunPlatform } from "./platform/run.ts";
+const mount = document.querySelector<HTMLDivElement>("#app");
+if (!mount) throw new Error("Missing #app");
+mount.innerHTML = `
+<main class="shell">
+  <header class="masthead"><a class="wordmark" href="#">PHONE <span>OF</span> THRONES<span class="edition">SHIELDWALL · COMBAT PROTOTYPE</span></a><span class="platform-badge">RUN.WORLD <i></i></span></header>
+  <section class="stage" aria-label="Phone of Thrones arena">
+    <canvas id="game" tabindex="0" width="720" height="1280" aria-label="Top-down melee arena. Move with WASD or arrows, J to attack, K to block, Space to dodge.">Your browser needs Canvas2D to play.</canvas>
+    <div class="hud" hidden>
+      <div class="health-heading"><span>VITALITY</span><strong id="hp">100 / 100</strong></div>
+      <div class="meter health"><span id="health-fill"></span></div>
+      <div class="guard-line"><span>GUARD</span><div class="meter"><span id="guard-fill"></span></div><span id="guard-number">40</span></div>
+      <div class="encounter"><span id="loadout">Sword</span><span id="encounter">3 HOSTILES</span><time id="timer">0:00</time></div>
+    </div>
+    <div id="touch-controls" hidden>
+      <div class="move-zone" data-control="move" aria-label="Drag to move"></div>
+      <button class="combat block" data-control="block" aria-label="Block: hold to guard, raise just before impact to parry"><span class="control-icon">♜</span><span>BLOCK</span><small>HOLD · K</small></button>
+      <button class="combat attack" data-control="attack" aria-label="Attack: tap for light, hold then release for heavy"><span class="control-icon">⚔</span><span>ATTACK</span><small>TAP / HOLD · J</small></button>
+      <button class="combat dodge" data-control="dodge" aria-label="Dodge in movement direction, or backwards when standing"><span class="control-icon">◇</span><span>DODGE</span><small>SPACE</small></button>
+    </div>
+    <section id="panel" class="overlay" aria-labelledby="panel-title">
+      <div class="panel-inner">
+        <div class="crest" aria-hidden="true">♜</div><p class="eyebrow" id="eyebrow">THE TRAINING GROUNDS</p>
+        <h1 id="panel-title">Steel yourself.</h1>
+        <p id="panel-copy" class="panel-copy">One arena. Five weapons. Every strike is a choice.</p>
+        <div id="setup">
+          <fieldset><legend>CHOOSE YOUR WEAPON</legend><div class="weapon-grid">${WEAPONS.map((w, i) => `<button class="weapon ${i === 0 ? "selected" : ""}" data-weapon="${i}" aria-pressed="${i === 0}"><span aria-hidden="true">${["†", "↟", "⚒", "‡", "╋"][i]}</span>${w.name}</button>`).join("")}</div></fieldset>
+          <p id="weapon-description" class="weapon-description">${WEAPONS[0]!.description}</p>
+          <label class="shield-toggle"><input id="shield" type="checkbox"/><span>Carry a shield</span><small id="shield-hint">Sword & spear · slower movement</small></label>
+          <label class="mode-label" for="mode">YOUR CHALLENGE</label><select id="mode"><option value="threeCaptain">Three enemies + Captain</option><option value="one">One enemy · practice</option><option value="captain">Captain only</option></select>
         </div>
-        <div id="modal" class="game-modal">
-          <div class="modal-panel">
-            <div class="eyebrow">PLAYABLE STARTER DEMO</div>
-            <h1 id="modal-heading">SIGNAL<span>RUN</span></h1>
-            <p id="modal-description">Collect 10 signals before the timer ends. Move with WASD, arrow keys, or touch and drag.</p>
-            <button id="action" class="button primary" disabled>Connecting…</button>
-            <button id="offline" class="button ghost" hidden>Try offline demo</button>
-          </div>
-        </div>
+        <button id="action" class="primary" disabled>Connecting…</button>
+        <button id="offline" class="secondary">Play offline</button>
+        <button id="back" class="secondary" hidden>Change loadout</button>
+        <p id="connection" class="connection" role="status">Connecting to RUN.world…</p>
+        <p class="instructions">Move with the left stick. Tap attack for a quick cut.<br/>Hold, then release for a heavy. Block or dodge the red wedge.</p>
       </div>
-      <footer class="controls">
-        <button id="pause" class="button ghost compact" disabled>Pause</button>
-        <button id="restart" class="button ghost compact">Reset</button>
-        <span class="control-tip">Keyboard · Mouse · Touch</span>
-      </footer>
     </section>
-    <aside class="info-panel">
-      <span class="eyebrow">RUN.WORLD / BUILD A</span>
-      <h2>ONE FOUNDATION.<br/><em>ANY GAME.</em></h2>
-      <p>This is a working game-shell example, not a required engine. Replace the sample with Three.js, PixiJS or your own renderer.</p>
-      <div class="feature"><span class="num">01</span><div><strong>CODEx FIRST</strong><small>AGENTS.md, reproducible workflow and architecture guidance.</small></div></div>
-      <div class="feature"><span class="num">02</span><div><strong>RUN SDK READY</strong><small>Playground plugins, isolated platform bootstrap and deploy scripts.</small></div></div>
-      <div class="feature"><span class="num">03</span><div><strong>TESTABLE CORE</strong><small>Deterministic game mechanics with native Node.js tests.</small></div></div>
-      <div class="feature"><span class="num">04</span><div><strong>MOBILE READY</strong><small>Responsive viewport and unified pointer and keyboard controls.</small></div></div>
-      <div class="aside-foot">Starter repository · TypeScript / Vite / Canvas2D</div>
-    </aside>
-  </main>`;
-
-function element<T extends HTMLElement>(selector: string): T {
-  const match = root!.querySelector<T>(selector);
-  if (!match) throw new Error(`Missing required element ${selector}`);
-  return match;
+  </section>
+  <footer><div class="footer-actions"><button id="pause" disabled>Pause</button><button id="mute" aria-pressed="false">Sound on</button><button id="menu" disabled>Loadout</button></div><span class="keyboard-tip">WASD move · J attack · K block · Space dodge</span></footer>
+</main>`;
+function el<T extends HTMLElement>(selector: string): T {
+  const node = mount!.querySelector<T>(selector);
+  if (!node) throw new Error(`Missing ${selector}`);
+  return node;
 }
-
-const canvas = element<HTMLCanvasElement>('#game');
-const ctx = canvas.getContext('2d');
-if (!ctx) throw new Error('Canvas2D not available');
-const scoreEl = element<HTMLElement>('#score');
-const timeEl = element<HTMLElement>('#time');
-const statusEl = element<HTMLElement>('#platform-status');
-const modalEl = element<HTMLElement>('#modal');
-const headingEl = element<HTMLElement>('#modal-heading');
-const descriptionEl = element<HTMLElement>('#modal-description');
-const actionEl = element<HTMLButtonElement>('#action');
-const offlineEl = element<HTMLButtonElement>('#offline');
-const pauseEl = element<HTMLButtonElement>('#pause');
-const resetEl = element<HTMLButtonElement>('#restart');
-
-let game: GameState = createGame();
-let active = false;
-let pointerActive = false;
-let frameLast = 0;
-let accumulator = 0;
-let lastMode = '';
-const STEP = 1 / 60;
-const dirs: Directions = { left: false, right: false, up: false, down: false };
-const input: Input = { directions: dirs, pointerTarget: null };
-
-function updateSizing(): void {
-  // CSS controls display size; the backing store stays at logical coordinates.
+const canvas = el<HTMLCanvasElement>("#game"),
+  ctx = canvas.getContext("2d");
+if (!ctx) throw new Error("Canvas2D is unavailable");
+const stage = el<HTMLElement>(".stage"),
+  panel = el<HTMLElement>("#panel"),
+  title = el<HTMLElement>("#panel-title");
+const copy = el<HTMLElement>("#panel-copy"),
+  setup = el<HTMLElement>("#setup"),
+  action = el<HTMLButtonElement>("#action");
+const offline = el<HTMLButtonElement>("#offline"),
+  back = el<HTMLButtonElement>("#back"),
+  connection = el<HTMLElement>("#connection");
+const pauseButton = el<HTMLButtonElement>("#pause"),
+  muteButton = el<HTMLButtonElement>("#mute"),
+  menuButton = el<HTMLButtonElement>("#menu");
+const mode = el<HTMLSelectElement>("#mode"),
+  shield = el<HTMLInputElement>("#shield");
+const hud = el<HTMLElement>(".hud"),
+  controls = el<HTMLElement>("#touch-controls");
+const hp = el<HTMLElement>("#hp"),
+  healthFill = el<HTMLElement>("#health-fill"),
+  guardFill = el<HTMLElement>("#guard-fill");
+const guardNumber = el<HTMLElement>("#guard-number"),
+  loadout = el<HTMLElement>("#loadout"),
+  encounter = el<HTMLElement>("#encounter"),
+  timer = el<HTMLElement>("#timer");
+const game = new Game(),
+  sound = new SoundPlayer();
+let selectedWeapon = 0,
+  ready = false,
+  offlineChosen = false,
+  accumulator = 0,
+  previous = 0,
+  lastPanel = "";
+let boundsChanged = true;
+let connectionLabel = "Connecting…";
+const input = new BrowserInput(game, stage, () => sound.unlock(), pause, act);
+function size(): void {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = Math.round(BOARD_WIDTH * dpr);
-  canvas.height = Math.round(BOARD_HEIGHT * dpr);
+  canvas.width = Math.round(720 * dpr);
+  canvas.height = Math.round(1280 * dpr);
   ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+  boundsChanged = false;
 }
-window.addEventListener('resize', updateSizing);
-updateSizing();
-
-function setTarget(clientX: number, clientY: number): void {
-  const rect = canvas.getBoundingClientRect();
-  input.pointerTarget = {
-    x: ((clientX - rect.left) / rect.width) * BOARD_WIDTH,
-    y: ((clientY - rect.top) / rect.height) * BOARD_HEIGHT,
-  };
+window.addEventListener("resize", () => {
+  boundsChanged = true;
+  pause();
+});
+size();
+new ResizeObserver(() => {
+  boundsChanged = true;
+  pause();
+}).observe(stage);
+function pause(): void {
+  if (game.phase !== "fighting") return;
+  game.pause();
+  input.reset();
+  sound.pause();
+  accumulator = 0;
+  previous = 0;
 }
-canvas.addEventListener('pointerdown', (event) => {
-  if (game.mode !== 'playing') return;
-  pointerActive = true;
-  canvas.setPointerCapture(event.pointerId);
-  setTarget(event.clientX, event.clientY);
+function act(): void {
+  if (!ready || (game.phase === "result" && game.resultTimer > 0)) return;
+  sound.unlock();
+  input.reset();
+  accumulator = 0;
+  previous = 0;
+  if (game.phase === "paused") game.resume();
+  else game.start(mode.value as Mode, selectedWeapon, shield.checked);
+  canvas.focus({ preventScroll: true });
+}
+action.addEventListener("click", act);
+pauseButton.addEventListener("click", () => {
+  if (game.phase === "paused") act();
+  else pause();
 });
-canvas.addEventListener('pointermove', (event) => {
-  if (pointerActive) setTarget(event.clientX, event.clientY);
+muteButton.addEventListener("click", () => {
+  sound.toggle();
+  muteButton.textContent = sound.muted ? "Sound off" : "Sound on";
+  muteButton.setAttribute("aria-pressed", String(sound.muted));
 });
-function clearPointer(): void { pointerActive = false; input.pointerTarget = null; }
-canvas.addEventListener('pointerup', clearPointer);
-canvas.addEventListener('pointercancel', clearPointer);
-window.addEventListener('blur', () => { clearPointer(); clearDirections(); pauseGame(game); });
-
-const keyMap: Record<string, keyof Directions> = {
-  arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right',
-  arrowup: 'up', w: 'up', arrowdown: 'down', s: 'down',
-};
-function clearDirections(): void { dirs.left = false; dirs.right = false; dirs.up = false; dirs.down = false; }
-window.addEventListener('keydown', (event) => {
-  const key = event.key.toLowerCase();
-  if (key in keyMap) {
-    if (game.mode === 'playing') event.preventDefault();
-    dirs[keyMap[key]!] = true;
+function showMenu(): void {
+  input.reset();
+  sound.pause();
+  game.menu();
+  accumulator = 0;
+  previous = 0;
+}
+back.addEventListener("click", showMenu);
+menuButton.addEventListener("click", showMenu);
+offline.addEventListener("click", () => {
+  offlineChosen = true;
+  ready = true;
+  offline.hidden = true;
+  connection.textContent = "Offline play · RUN.world connection not verified";
+  lastPanel = "";
+});
+for (const button of mount.querySelectorAll<HTMLButtonElement>(
+  "[data-weapon]",
+)) {
+  button.addEventListener("click", () => {
+    selectedWeapon = Number(button.dataset.weapon);
+    for (const b of mount.querySelectorAll<HTMLButtonElement>(
+      "[data-weapon]",
+    )) {
+      const selected = b === button;
+      b.classList.toggle("selected", selected);
+      b.setAttribute("aria-pressed", String(selected));
+    }
+    const w = WEAPONS[selectedWeapon]!;
+    el("#weapon-description").textContent = w.description;
+    shield.disabled = !w.oneHanded;
+    if (!w.oneHanded) shield.checked = false;
+    el("#shield-hint").textContent = w.oneHanded
+      ? "Sword & spear · slower movement"
+      : "Two-handed weapon · no shield";
+  });
+}
+function sync(): void {
+  const h = game.hero;
+  hp.textContent = `${Math.ceil(h.hp)} / ${T.heroHp}`;
+  healthFill.style.width = `${h.hp}%`;
+  guardFill.style.width = `${(h.guard / h.maxGuard) * 100}%`;
+  guardNumber.textContent = String(Math.ceil(h.guard));
+  loadout.textContent = h.weapon.name + (h.shield ? " + shield" : "");
+  encounter.textContent = game.captainSpawned
+    ? "CAPTAIN"
+    : `${game.alive} HOSTILE${game.alive === 1 ? "" : "S"}`;
+  timer.textContent = `${Math.floor(game.fightTime / 60)}:${String(Math.floor(game.fightTime % 60)).padStart(2, "0")}`;
+  pauseButton.disabled = !["fighting", "paused"].includes(game.phase);
+  pauseButton.textContent = game.phase === "paused" ? "Resume" : "Pause";
+  menuButton.disabled = game.phase === "menu";
+  hud.hidden = game.phase === "menu";
+  controls.hidden = game.phase !== "fighting";
+  const panelState = game.phase + (game.resultTimer > 0 ? "-wait" : "") + ready;
+  if (lastPanel === panelState) return;
+  lastPanel = panelState;
+  panel.hidden =
+    game.phase === "fighting" ||
+    (game.phase === "result" && game.resultTimer > 0);
+  setup.hidden = game.phase !== "menu";
+  back.hidden = game.phase === "menu";
+  offline.hidden = ready;
+  action.disabled = !ready;
+  if (game.phase === "menu") {
+    title.textContent = "Steel yourself.";
+    copy.textContent = "One arena. Five weapons. Every strike is a choice.";
+    action.textContent = ready ? "Enter the arena →" : connectionLabel;
+  } else if (game.phase === "paused") {
+    title.textContent = "Take a breath.";
+    copy.textContent = "Your fight is paused. Resume when you’re ready.";
+    action.textContent = "Resume fight →";
+  } else if (game.phase === "result") {
+    title.textContent =
+      game.outcome === "victory" ? "The arena is yours." : "Rise again.";
+    copy.textContent = `${game.outcome === "victory" ? "Victory" : "Defeat"} · ${h.weapon.name}${h.shield ? " + shield" : ""} · ${game.fightTime.toFixed(1)}s · ${Math.ceil(h.hp)} HP remaining`;
+    action.textContent = "Fight again →";
   }
-  if (key === 'escape' && game.mode === 'playing') pauseGame(game);
-  if (key === ' ' && !event.repeat && active && (game.mode === 'ready' || game.mode === 'paused')) {
-    event.preventDefault(); startGame(game);
-  }
-});
-window.addEventListener('keyup', (event) => {
-  const direction = keyMap[event.key.toLowerCase()];
-  if (direction) dirs[direction] = false;
-});
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { pauseGame(game); clearDirections(); clearPointer(); accumulator = 0; frameLast = 0; }
-});
-
-function reset(): void { game = createGame((Date.now() >>> 0) || 1); clearDirections(); clearPointer(); accumulator = 0; }
-
-function action(): void {
-  if (!active) return;
-  if (game.mode === 'won' || game.mode === 'lost') reset();
-  startGame(game);
+  if (!panel.hidden)
+    requestAnimationFrame(() => {
+      if (ready && game.phase !== "menu") action.focus({ preventScroll: true });
+    });
 }
-actionEl.addEventListener('click', action);
-resetEl.addEventListener('click', reset);
-pauseEl.addEventListener('click', () => {
-  if (game.mode === 'playing') pauseGame(game);
-  else if (game.mode === 'paused') startGame(game);
-});
-offlineEl.addEventListener('click', () => {
-  active = true;
-  offlineEl.hidden = true;
-  statusEl.textContent = 'Offline demo · SDK unavailable';
-  statusEl.classList.add('warning');
-});
-
-function syncUI(): void {
-  scoreEl.textContent = `${game.score} / ${TARGET_SCORE}`;
-  timeEl.textContent = `${Math.ceil(game.remaining)}s`;
-  actionEl.disabled = !active;
-  if (active && game.mode === 'ready') actionEl.textContent = 'Start game';
-  if (lastMode === game.mode) return;
-  lastMode = game.mode;
-  pauseEl.disabled = !active || (game.mode !== 'playing' && game.mode !== 'paused');
-  pauseEl.textContent = game.mode === 'paused' ? 'Resume' : 'Pause';
-  modalEl.hidden = game.mode === 'playing';
-  const screen = {
-    ready: ['SIGNAL RUN', 'Collect 10 signals before the timer ends. Move with WASD, arrow keys, or touch and drag.', 'Start game'],
-    paused: ['PAUSED', 'Your timer is frozen. Resume when ready.', 'Resume game'],
-    won: ['MISSION CLEAR', 'All signals recovered. The example game loop is complete.', 'Play again'],
-    lost: ['TIME EXPIRED', `You recovered ${game.score} of ${TARGET_SCORE} signals.`, 'Try again'],
-    playing: ['', '', ''],
-  }[game.mode];
-  headingEl.textContent = screen[0];
-  descriptionEl.textContent = screen[1];
-  actionEl.textContent = active ? screen[2] : 'Connecting…';
-  actionEl.disabled = !active;
-}
-
 function frame(now: number): void {
-  if (frameLast === 0) frameLast = now;
-  const delta = Math.min((now - frameLast) / 1000, 0.1);
-  frameLast = now;
-  if (game.mode === 'playing') {
-    accumulator += delta;
-    for (let i = 0; i < 6 && accumulator >= STEP; i += 1) {
-      tickGame(game, input, STEP);
-      accumulator -= STEP;
+  if (boundsChanged) size();
+  const dt = previous ? Math.min((now - previous) / 1000, 0.1) : 0;
+  previous = now;
+  if (game.phase === "fighting") {
+    accumulator = Math.min(accumulator + dt, 0.1);
+    while (accumulator + 1e-9 >= 1 / 60) {
+      game.step(1 / 60);
+      accumulator -= 1 / 60;
     }
   } else {
     accumulator = 0;
+    if (game.phase === "result") game.step(dt);
   }
-  syncUI();
-  renderGame(ctx!, game, now);
+  for (const event of game.events.splice(0)) sound.play(event);
+  sync();
+  renderGame(ctx!, game, input.stick);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-
 async function connect(): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
-    await initializeRunPlatform();
-    active = true;
-    statusEl.textContent = 'RUN.world SDK connected';
-    statusEl.classList.add('connected');
-  } catch (error) {
-    statusEl.textContent = 'SDK connection failed';
-    statusEl.classList.add('warning');
-    offlineEl.hidden = false;
-    console.error('RUN.world platform initialization failed:', error);
-    // Offline mode is an explicit player choice, never a fake SDK success.
-    actionEl.textContent = 'Platform connection required';
+    const platform = await Promise.race([
+      initializeRunPlatform(pause),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error("RUN.world connection timed out")),
+          10000,
+        );
+      }),
+    ]);
+    if (!offlineChosen) {
+      ready = !platform.local;
+      connection.textContent = platform.local
+        ? "Local preview · choose offline play to enter"
+        : "RUN.world SDK initialized";
+      if (platform.local) connectionLabel = "Choose offline play below";
+      lastPanel = "";
+    }
+  } catch {
+    if (!offlineChosen) {
+      connection.textContent =
+        "RUN.world unavailable. Choose offline play to continue.";
+      connectionLabel = "Connection unavailable";
+      lastPanel = "";
+    }
+  } finally {
+    clearTimeout(timeout);
   }
 }
 void connect();

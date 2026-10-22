@@ -1,29 +1,29 @@
-# Architecture and extension points
+# Phone of Thrones architecture
 
-## Current starter
+## Simulation
 
-- `src/main.ts`: bootstraps UI, local input handling, fixed-step loop, SDK status and lifecycle.
-- `src/game/core.ts`: deterministic game state, controls and win/loss rules; no browser dependencies.
-- `src/game/render.ts`: sample Canvas2D renderer; disposable for real games.
-- `src/platform/run.ts`: the only module importing the RUN SDK API. Add typed platform integration here as needed.
-- `src/style.css`: responsive wrapper and overlays, not a framework commitment.
-- `tests/core.test.mjs`: deterministic model tests using Node 22's native test runner.
-- `vite.config.ts`: official RUN.world dev plugins, subdirectory-safe paths and ES2022 build.
+`Game` owns the encounter phase, mode, loadout, hero, enemies, commitment controller, intermission, outcome and sound-event queue. `start` resets all encounter state while retaining omitted mode/loadout arguments. `pause` and `resume` clear input; a cancelled charge never becomes an attack after resuming.
 
-## Core contract
+`Hero` and `Enemy` run explicit state machines. The pure TypeScript model has no DOM, Canvas, SDK or audio dependencies. Tuning, five weapon definitions, grunt/captain profiles and attack data live in `data.ts`. The source is Godot v0.8.0 at e7ab545; the latest implemented mechanics take precedence over its older design document.
 
-Game simulation runs at fixed 60 Hz using elapsed-time accumulation with a catch-up cap. Rendering runs at display rate. Large background-tab time jumps are intentionally discarded, and the app pauses when focus is lost.
+The browser loop accumulates fixed 1/60 s steps, capped at 0.1 s catch-up. `Game.step` also subdivides larger calls to avoid skipping short active windows. Enemies resolve first, then the hero, body separation and encounter transitions. Defeat takes priority. One-step input flags are consumed even when the action is refused. Dead/staggered enemies release commitment slots; captain combos retain one slot between strikes. At most two attacks are committed concurrently.
 
-Inputs: WASD/arrow keys or a pointer target mapped from actual canvas bounds into logical 720x1000 coordinates. Touch and mouse share Pointer Events. Rendering uses device pixel ratio capped at 2 to avoid huge mobile framebuffers.
+## Geometry and presentation
 
-## Swapping to PixiJS
+The top-down simulation uses direct screen axes and a 340×380 rectangular arena. The hero spawns at (170,300), enemies at (170,80), (90,95), (250,95). The captain appears at the farther end. These replace only the source's isometric coordinate mapping and spawn orientation.
 
-Keep `src/platform/run.ts`, CI, Vite plugins, lifecycle, tests and core model. Replace `renderGame` and Canvas2D setup with a PixiJS Application/render adapter. Avoid importing PixiJS into pure game logic; adapt pointer inputs at the renderer boundary.
+Damage uses analytic sector/circle contact. The renderer draws the same sector through Canvas arcs with the exact origin, facing, reach and arc. Captain lunge telegraphs remain anchored at the strike origin while its body slides forward. Canvas2D renders procedural characters, effects and arena; no external art is fetched.
 
-## Swapping to Three.js
+The logical viewport is 720×1280. Arena scaling is uniform; input converts actual element bounds back to logical coordinates. DOM controls occupy the bottom 28%, preserving independent pointer captures for stick, attack, block and dodge. Device and SDK safe-area CSS variables protect the whole shell; a ResizeObserver pauses on stage-size changes. Pixel density is capped at 2. Portrait is the design target; very short landscape windows can scroll.
 
-Keep platform bootstrap, CI, game model and timing. Replace Canvas2D setup with a Three.js scene, camera, WebGLRenderer and raycast or virtual-stick input adapter. Handle WebGL context loss and capped DPR; build actual assets as GLB/GLTF where appropriate. Mobile benchmark before adding post-processing.
+## Browser and platform boundary
 
-## Online features
+`CombatInput` merges keyboard/touch held states and one-step edges. `BrowserInput` maps DOM events, cancels slide-off attacks and resets pointer captures. Keyboard and touch share combat rules. The DOM shell manages menu, mode/loadout choice, pause/result panels, HUD and explicit offline selection.
 
-No cloud persistence or multiplayer is implemented in the sample. To add either, consult the installed SDK docs for current API signatures, implement integration in `src/platform`, add user-facing error handling, and verify in RUN.world Playground with distinct test users. Never equate local mocks with platform verification.
+The platform adapter awaits SDK initialization and subscribes to host pause/sleep. Development/mock initialization is labelled local and still requires choosing offline play; it is not reported as a verified platform connection. Initialization failure/timeout leaves offline play available. Host resume never starts a fight automatically. Official libraries/Playground Vite plugins, relative paths and `dist` output are preserved.
+
+Audio consumes discrete simulation events, starts after interaction, caps simultaneous voices, suspends on pause and provides a session-only mute toggle. No persistent settings or platform storage are used.
+
+## Checks
+
+Native Node tests exercise model behavior and scripted complete encounters. Playwright tests exercise the built browser UI, real Chromium touch events, keyboard fights, pause, viewport/safe-area layout and nested asset hosting. CI uses the committed lockfile. Authenticated Playground behavior, deployment and real phone performance remain distinct verification gates.
